@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Portal</title>
+<style>
+:root{--bg:#f4f6f6;--card:#fff;--ink:#141a1a;--mute:#4a5757;--main:#0b6b66;--onmain:#fff;--line:#c5d0cf;--ok:#0a6b2d;--okbg:#e2f4e8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101515;--card:#1a2222;--ink:#eef3f3;--mute:#a9b8b7;--main:#4cc3bb;--onmain:#06201e;--line:#34443f;--ok:#7fe0a0;--okbg:#14301f}}
+:root[data-theme="dark"]{--bg:#101515;--card:#1a2222;--ink:#eef3f3;--mute:#a9b8b7;--main:#4cc3bb;--onmain:#06201e;--line:#34443f;--ok:#7fe0a0;--okbg:#14301f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--main);color:var(--onmain);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:5}
+.brand{color:inherit;text-decoration:none;font-size:20px;font-weight:800}
+button,input{font:inherit;color:inherit}
+header button{background:transparent;border:2px solid currentColor;color:inherit;border-radius:8px;min-height:44px;padding:4px 14px;cursor:pointer}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:8px 0 4px}
+.mute{color:var(--mute);font-size:16px}
+.search{width:100%;min-height:52px;border:2px solid var(--line);border-radius:10px;padding:8px 14px;background:var(--card);margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:12px 0}
+.card{display:block;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:14px;text-decoration:none;color:inherit}
+.card:hover,.card:focus-visible{border-color:var(--main)}
+.card b{display:block;font-size:19px;margin-bottom:4px}
+.bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--main)}
+.back{display:inline-block;margin:4px 0 8px;color:var(--main);font-weight:700;text-decoration:none;min-height:44px;line-height:44px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{min-height:44px;padding:6px 14px;border:2px solid var(--line);background:var(--card);border-radius:8px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--main);color:var(--onmain);border-color:var(--main);font-weight:700}
+details{background:var(--card);border:2px solid var(--line);border-radius:12px;margin:10px 0}
+summary{cursor:pointer;padding:14px;font-weight:700;font-size:18px;min-height:52px}
+.v{padding:12px 14px;border-top:1px solid var(--line)}
+.v.done{background:var(--okbg)}
+.v .t{font-weight:600}
+.v .m{color:var(--mute);font-size:16px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.btn{display:inline-block;min-height:44px;padding:8px 16px;border-radius:8px;border:2px solid var(--main);background:var(--main);color:var(--onmain);font-weight:700;text-decoration:none;cursor:pointer}
+.btn.alt{background:transparent;color:var(--main)}
+.btn.alt[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--onmain)}
+.res{background:var(--card);border:2px solid var(--line);border-radius:12px;margin:10px 0}
+</style>
+</head>
+<body>
+<header><a class="brand" href="#home">Study Portal</a><button id="theme" type="button">Dark</button></header>
+<main id="app"><p>Loading...</p></main>
+<script>
+var D=null,W={},app=document.getElementById('app'),hideDone=false,teacher='';
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+try{W=JSON.parse(ls('sp_watched')||'{}')||{}}catch(e){W={}}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function vid(v){var m=/[?&]v=([\w-]{6,})/.exec(v.youtube||'')||/youtu\.be\/([\w-]{6,})/.exec(v.youtube||'');return m?m[1]:(v.youtube||v.name)}
+function vids(c){return c.videos||[]}
+function wcount(c){return vids(c).filter(function(v){return W[vid(v)]}).length}
+function allCourses(){var o=[];D.subjects.forEach(function(s){s.courses.forEach(function(c){o.push(c)})});return o}
+function bar(w,n){return '<div class="bar" aria-hidden="true"><i style="width:'+(n?Math.round(w*100/n):0)+'%"></i></div>'}
+function find(id){return allCourses().filter(function(c){return c.id===id})[0]}
+
+function videoRow(v,extra){
+  var k=vid(v),done=!!W[k],tp=(v.topics||[]).join(' · ');
+  return '<div class="v'+(done?' done':'')+'"><div class="t">'+esc(v.name)+'</div><div class="m">'+esc(extra||'')+esc(v.teacher||'')+(tp?' · '+esc(tp):'')+(v.status==='pending'?' · Not checked yet':'')+'</div>'+
+  '<div class="acts"><a class="btn" href="'+esc(v.youtube)+'" target="_blank" rel="noopener" data-last="1">Watch on YouTube</a>'+
+  '<button class="btn alt" type="button" data-w="'+esc(k)+'" aria-pressed="'+done+'">'+(done?'Watched':'Mark as watched')+'</button></div></div>';
+}
+
+function home(){
+  var tv=0,tw=0;allCourses().forEach(function(c){tv+=vids(c).length;tw+=wcount(c)});
+  var last=ls('sp_last'),lc=last&&find(last),h='<h1>Study library</h1><p class="mute">'+tv+' lectures. You watched '+tw+'.</p>'+
+  '<input class="search" id="q" type="search" placeholder="Search lectures, chapters or teachers" aria-label="Search">';
+  if(lc)h+='<a class="card" href="#course='+encodeURIComponent(lc.id)+'"><span class="mute">Continue where you left</span><b>'+esc(lc.name)+'</b></a>';
+  h+='<div id="out"><div class="grid">';
+  D.subjects.forEach(function(s,i){
+    var n=0,w=0;s.courses.forEach(function(c){n+=vids(c).length;w+=wcount(c)});
+    h+='<a class="card" href="#subject='+i+'"><b>'+esc(s.name)+'</b><span class="mute">'+s.courses.length+' course'+(s.courses.length==1?'':'s')+' · '+n+' lectures</span>'+(n?'<div class="mute">'+w+' of '+n+' watched</div>'+bar(w,n):'')+'</a>';
+  });
+  app.innerHTML=h+'</div></div>';
+  var q=document.getElementById('q'),t;
+  q.oninput=function(){clearTimeout(t);t=setTimeout(function(){search(q.value)},200)};
+}
+
+function search(text){
+  var out=document.getElementById('out'),q=text.trim().toLowerCase();
+  if(q.length<2){render();return}
+  var hits=[];
+  allCourses().forEach(function(c){vids(c).forEach(function(v){
+    var hay=(v.name+' '+(v.chapter||'')+' '+(v.teacher||'')+' '+(v.topics||[]).join(' ')).toLowerCase();
+    if(hay.indexOf(q)>-1)hits.push([c,v]);
+  })});
+  var h='<p class="mute">'+hits.length+' result'+(hits.length==1?'':'s')+(hits.length>60?' (showing 60)':'')+'</p>';
+  hits.slice(0,60).forEach(function(x){h+='<div class="res">'+videoRow(x[1],x[0].name+' · ')+'</div>'});
+  out.innerHTML=h;
+}
+
+function subject(i){
+  var s=D.subjects[i];if(!s){location.hash='home';return}
+  var h='<a class="back" href="#home">&larr; All subjects</a><h1>'+esc(s.name)+'</h1><div class="grid">';
+  s.courses.forEach(function(c){
+    var n=vids(c).length,w=wcount(c);
+    h+='<a class="card" href="#course='+encodeURIComponent(c.id)+'"><b>'+esc(c.name)+'</b>'+(n?'<span class="mute">'+n+' lectures · '+w+' watched</span>'+bar(w,n):'<span class="mute">Coming soon</span>')+'</a>';
+  });
+  app.innerHTML=h+'</div>';
+}
+
+function course(id){
+  var c=find(id),si=0;if(!c){location.hash='home';return}
+  D.subjects.forEach(function(s,i){if(s.courses.indexOf(c)>-1)si=i});
+  ls('sp_last',c.id);
+  var all=vids(c),n=all.length,w=wcount(c);
+  var h='<a class="back" href="#subject='+si+'">&larr; '+esc(D.subjects[si].name)+'</a><h1>'+esc(c.name)+'</h1>';
+  if(!n){app.innerHTML=h+'<p class="mute">No lectures here yet.</p>';return}
+  h+='<p class="mute">'+w+' of '+n+' watched</p>'+bar(w,n);
+  var ts=[];all.forEach(function(v){if(v.teacher&&ts.indexOf(v.teacher)<0)ts.push(v.teacher)});
+  h+='<div class="chips">';
+  if(ts.length>1){h+='<button class="chip" type="button" data-t="" aria-pressed="'+(teacher==='')+'">All teachers</button>';ts.forEach(function(t){h+='<button class="chip" type="button" data-t="'+esc(t)+'" aria-pressed="'+(teacher===t)+'">'+esc(t)+'</button>'})}
+  h+='<button class="chip" type="button" id="hd" aria-pressed="'+hideDone+'">Hide watched</button></div>';
+  var ch=[],map={};
+  all.slice().sort(function(a,b){return(a.order||0)-(b.order||0)}).forEach(function(v){
+    if(teacher&&v.teacher!==teacher)return;
+    var k=v.chapter||'Lectures';if(!map[k]){map[k]=[];ch.push(k)}map[k].push(v);
+  });
+  var opened=false;
+  ch.forEach(function(k){
+    var list=map[k],dw=list.filter(function(v){return W[vid(v)]}).length;
+    var shown=hideDone?list.filter(function(v){return !W[vid(v)]}):list;
+    if(!shown.length)return;
+    var open=!opened&&dw<list.length;if(open)opened=true;
+    h+='<details'+(open?' open':'')+'><summary>'+esc(k)+' <span class="mute">('+dw+'/'+list.length+')</span></summary>';
+    shown.forEach(function(v){h+=videoRow(v)});h+='</details>';
+  });
+  app.innerHTML=h;
+}
+
+function render(){
+  if(!D)return;
+  var y=window.scrollY,hs=location.hash.replace(/^#/,''),m;
+  if(m=/^subject=(\d+)$/.exec(hs))subject(+m[1]);
+  else if(m=/^course=(.+)$/.exec(hs)){var id;try{id=decodeURIComponent(m[1])}catch(e){id=''}course(id)}
+  else home();
+  window.scrollTo(0,y);
+}
+
+app.addEventListener('click',function(e){
+  var b=e.target.closest('[data-w]'),t=e.target.closest('[data-t]'),a=e.target.closest('[data-last]');
+  if(b){var k=b.getAttribute('data-w');if(W[k])delete W[k];else W[k]=1;ls('sp_watched',JSON.stringify(W));
+    var q=document.getElementById('q');if(q&&q.value.trim().length>1){var f=b.closest('.v');var d=!!W[k];f.classList.toggle('done',d);b.setAttribute('aria-pressed',d);b.textContent=d?'Watched':'Mark as watched'}else{var open=[].map.call(app.querySelectorAll('details'),function(x){return x.open});render();[].forEach.call(app.querySelectorAll('details'),function(x,i){if(open[i]!==undefined)x.open=open[i]})}}
+  else if(t){teacher=t.getAttribute('data-t');render()}
+  else if(e.target.id==='hd'){hideDone=!hideDone;render()}
+});
+window.addEventListener('hashchange',function(){window.scrollTo(0,0);render()});
+
+var th=document.getElementById('theme');
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);th.textContent=t==='dark'?'Light':'Dark';ls('sp_theme',t)}
+var st=ls('sp_theme');if(st)setTheme(st);else th.textContent=matchMedia('(prefers-color-scheme: dark)').matches?'Light':'Dark';
+th.onclick=function(){var d=document.documentElement.getAttribute('data-theme');if(!d)d=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';setTheme(d==='dark'?'light':'dark')};
+
+fetch('data.json').then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){D=j;render()}).catch(function(){
+  app.innerHTML='<p>Could not load data.json. Put index.html and data.json in the same folder and open the page from GitHub Pages or a local server.</p>'});
+</script>
+</body>
+</html>
